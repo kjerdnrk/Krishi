@@ -1,7 +1,7 @@
-ultralytics==8.2.0
-torch==2.2.0
-torchvision==0.17.0
-streamlit==1.32.0
+ultralytics
+torch
+torchvision
+streamlit
 streamlit-webrtc
 opencv-python-headless
 pillow
