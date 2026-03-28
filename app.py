@@ -1,35 +1,41 @@
 import streamlit as st
-from PIL import Image
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
+import av
 import numpy as np
 from ultralytics import YOLO
 
 # Load model
 model = YOLO("best (1).pt")
 
-st.title("🌱 Krishi Rakshak - AI Disease Detection")
+st.title("🌱 Krishi Rakshak - LIVE AI Detection")
 
-uploaded_file = st.file_uploader("Upload Plant Image", type=["jpg", "png", "jpeg"])
+class VideoProcessor(VideoProcessorBase):
+    def recv(self, frame):
+        img = frame.to_ndarray(format="bgr24")
 
-if uploaded_file:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+        # Run YOLO
+        results = model(img, verbose=False)
 
-    img = np.array(image)
+        probs = results[0].probs
+        names = results[0].names
 
-    results = model(img)
+        if probs is not None:
+            pred_class = probs.top1
+            confidence = float(probs.data[pred_class]) * 100
+            class_name = names[pred_class]
 
-    probs = results[0].probs.data.tolist()
-    names = results[0].names
+            label = f"{class_name} {confidence:.1f}%"
 
-    pred_class = results[0].probs.top1
-    confidence = probs[pred_class] * 100
-    class_name = names[pred_class]
+            # Draw on frame
+            import cv2
+            cv2.putText(img, label, (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1,
+                        (0, 255, 0), 2)
 
-    st.subheader("Prediction")
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-    if class_name == "Healthy Maize":
-        st.success(f"✅ {class_name} ({confidence:.2f}%)")
-    else:
-        st.warning(f"⚠ {class_name} ({confidence:.2f}%)")
-
-    st.progress(int(confidence))
+webrtc_streamer(
+    key="krishi-live",
+    video_processor_factory=VideoProcessor,
+    media_stream_constraints={"video": True, "audio": False},
+)
